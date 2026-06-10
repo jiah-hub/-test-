@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>발주 대시보드</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:#f0f2f7;color:#1a2b45;font-size:13px}
+.sidebar{position:fixed;top:0;left:0;width:210px;height:100vh;background:#1F3864;padding:18px 14px;overflow-y:auto;z-index:100}
+.sidebar h1{color:#fff;font-size:14px;font-weight:700;margin-bottom:2px}
+.sidebar .sub{color:#8fa8cc;font-size:11px;margin-bottom:16px}
+.sidebar hr{border:none;border-top:1px solid #2d4a7a;margin:12px 0}
+.sidebar label.section{display:block;color:#8fa8cc;font-size:10px;margin-bottom:5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.sidebar input[type=date],.sidebar select{width:100%;background:#162d54;color:#c8d8f0;border:1px solid #2d4a7a;border-radius:6px;padding:5px 7px;font-size:12px;margin-bottom:10px}
+.sidebar .cb-group{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
+.sidebar .cb-group label{color:#c8d8f0;font-size:11px;font-weight:400;display:flex;align-items:center;gap:6px;cursor:pointer}
+.sidebar .cb-group input[type=checkbox]{accent-color:#4a90d9;cursor:pointer}
+.main{margin-left:210px;padding:14px}
+.tabs{display:flex;gap:2px;margin-bottom:14px;background:#fff;border-radius:10px;padding:4px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.tab{flex:1;padding:7px;text-align:center;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;color:#6b7c93;transition:all .15s;white-space:nowrap}
+.tab.active{background:#1F3864;color:#fff}
+.tab:hover:not(.active){background:#f0f4fa}
+.panel{display:none}.panel.active{display:block}
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}
+.kpi{background:#fff;border-radius:10px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:3px solid #e8ecf2}
+.kpi.danger{border-top-color:#e53e3e}.kpi.warn{border-top-color:#d97706}.kpi.info{border-top-color:#3182ce}.kpi.neutral{border-top-color:#718096}
+.kpi .lbl{font-size:10px;color:#6b7c93;font-weight:700;letter-spacing:.04em;margin-bottom:5px}
+.kpi .val{font-size:22px;font-weight:700;line-height:1}
+.kpi .unit{font-size:11px;color:#9aaabb;margin-top:2px}
+/* 카드 */
+.card{background:#fff;border-radius:10px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:10px}
+.card-title{font-size:11px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #eef0f5;padding-bottom:7px;margin-bottom:10px}
+/* 액션박스 */
+.abox{border-left:4px solid;border-radius:0 8px 8px 0;padding:9px 12px;margin-bottom:7px}
+.abox.red{border-color:#e53e3e;background:#fff8f8}.abox.amber{border-color:#d97706;background:#fffcf5}
+.abox.blue{border-color:#3182ce;background:#f7fbff}.abox.green{border-color:#38a169;background:#f6fdf8}
+.abox-title{font-size:12px;font-weight:700;margin-bottom:5px}
+.abox.red .abox-title{color:#c53030}.abox.amber .abox-title{color:#92600a}
+.abox.blue .abox-title{color:#1a5276}.abox.green .abox-title{color:#276221}
+.abox-row{display:flex;justify-content:space-between;font-size:11px;color:#4a5568;padding:1px 0}
+.abox-row strong{font-weight:700;color:#1a2b45}
+/* 달력 */
+.cal-wrap{background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden}
+.cal-head-row{display:grid;grid-template-columns:repeat(7,1fr);background:#1F3864}
+.cal-head-row span{text-align:center;color:#fff;font-size:11px;font-weight:700;padding:7px 0}
+.cal-head-row span:first-child{color:#fc8181}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.dc{border-right:1px solid #eef0f5;border-bottom:1px solid #eef0f5;min-height:86px;padding:4px;cursor:pointer;transition:background .1s;background:#fff}
+.dc:hover{background:#f0f7ff}
+.dc.empty{background:#f8f9fb;cursor:default}.dc.empty:hover{background:#f8f9fb}
+.dc.today .dn{background:#1a56db;color:#fff;border-radius:50%}
+.dc.has-order{background:#f0fdf4}
+.dc.selected{outline:2px solid #1a56db;outline-offset:-2px}
+.dc.sun .dn{color:#e53e3e}
+.dn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;font-size:11px;font-weight:700;margin-bottom:2px}
+.ev-wrap{display:flex;flex-direction:column;gap:2px}
+.ev{font-size:9px;padding:1px 4px;border-radius:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev.order{background:#c6f6d5;color:#276221}.ev.arrive{background:#bee3f8;color:#1a365d}
+.ev.warn{background:#fed7d7;color:#742a2a}.ev.stop{background:#e2e8f0;color:#4a5568}
+.ev-more{font-size:9px;color:#a0aec0}
+/* 발주 패널 */
+.order-panel{background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.order-panel h3{font-size:13px;font-weight:700;margin-bottom:8px;color:#1F3864}
+.op-row{display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid #f5f5f5}
+.op-row:last-of-type{border-bottom:none}
+.op-name{flex:1;font-size:11px;color:#2d3748;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-rec{font-size:10px;color:#3182ce;font-weight:700;min-width:32px;text-align:right}
+.op-input{width:58px;font-size:11px;padding:2px 5px;border:1px solid #d0d8e8;border-radius:4px;text-align:right}
+.op-input:focus{outline:none;border-color:#1a56db}
+/* 배지 */
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700}
+.s-품절{background:#fed7d7;color:#c53030}.s-안전재고↓{background:#feebc8;color:#c05621}
+.s-발주필요{background:#fefcbf;color:#92600a}.s-여유{background:#c6f6d5;color:#276221}
+.s-공급중단{background:#e2e8f0;color:#718096}
+.g-A{background:#fde8e8;color:#c53030}.g-B{background:#fef3cd;color:#92600a}
+.g-C{background:#e6f4ea;color:#276221}.g-D{background:#e6f1fb;color:#1a5276}
+/* 테이블 */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:#f7f9fc;color:#4a5568;font-weight:700;padding:7px 9px;text-align:left;border-bottom:2px solid #e8ecf2;white-space:nowrap}
+td{padding:6px 9px;border-bottom:1px solid #f0f2f7;vertical-align:middle}
+tr:hover td{background:#f7fbff}
+/* 폐기바 */
+.dbar-wrap{background:#f0f2f7;border-radius:4px;height:7px;overflow:hidden;min-width:50px}
+.dbar{height:100%;border-radius:4px;background:#fc8181}
+/* 버튼 */
+.btn{padding:5px 12px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all .15s}
+.btn-pri{background:#1F3864;color:#fff}.btn-pri:hover{background:#162d54}
+.btn-sec{background:#f0f2f7;color:#4a5568;border:1px solid #d0d8e8}.btn-sec:hover{background:#e2e8f0}
+.btn-danger{background:#fff5f5;color:#c53030;border:1px solid #fed7d7}
+/* 레이아웃 */
+.two-col{display:grid;grid-template-columns:1fr 290px;gap:10px;align-items:start}
+.three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cycle-card{background:#fff;border-radius:8px;padding:9px 11px;border:1px solid #e8ecf2}
+.cycle-name{font-size:11px;font-weight:700;margin-bottom:5px;color:#1a2b45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cycle-row{display:flex;justify-content:space-between;font-size:10px;color:#6b7c93;padding:1px 0}
+.cycle-row span{color:#1a2b45;font-weight:700}
+.cycle-dates{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px}
+.cdate{background:#e6f1fb;color:#1a5276;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px}
+/* 저장 알림 */
+.save-toast{position:fixed;bottom:14px;right:14px;background:#276221;color:#fff;padding:7px 13px;border-radius:8px;font-size:11px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.save-toast.show{opacity:1}
+/* 검색 */
+.search-box{padding:6px 10px;border:1px solid #d0d8e8;border-radius:7px;font-size:12px;margin-bottom:8px;width:220px}
+.search-box:focus{outline:none;border-color:#1a56db}
+/* 재고 진행바 */
+.stock-bar-wrap{background:#f0f2f7;border-radius:4px;height:6px;width:60px;overflow:hidden;display:inline-block;vertical-align:middle}
+.stock-bar{height:100%;border-radius:4px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.two-col{grid-template-columns:1fr}.three-col{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h1>발주 대시보드</h1>
+  <p class="sub">풀무원 품목 재고·발주 관리</p>
+  <hr>
+  <label class="section">기준일</label>
+  <input type="date" id="todayInput" value="2026-06-09" onchange="onDateChange()">
+  <hr>
+  <label class="section">신선도 필터</label>
+  <div class="cb-group">
+    <label><input type="checkbox" class="grade-cb" value="A" checked> A. 초신선 (≤3일)</label>
+    <label><input type="checkbox" class="grade-cb" value="B" checked> B. 신선 (4~7일)</label>
+    <label><input type="checkbox" class="grade-cb" value="C" checked> C. 준신선 (8~15일)</label>
+    <label><input type="checkbox" class="grade-cb" value="D" checked> D. 장기 (&gt;15일)</label>
+  </div>
+  <label class="section">상태 필터</label>
+  <div class="cb-group">
+    <label><input type="checkbox" class="status-cb" value="품절" checked> 품절</label>
+    <label><input type="checkbox" class="status-cb" value="안전재고↓" checked> 안전재고↓</label>
+    <label><input type="checkbox" class="status-cb" value="발주필요" checked> 발주필요</label>
+    <label><input type="checkbox" class="status-cb" value="여유" checked> 여유</label>
+    <label><input type="checkbox" class="status-cb" value="공급중단"> 공급중단</label>
+  </div>
+  <hr>
+  <label class="section">발주 기록</label>
+  <button class="btn btn-pri" style="width:100%;margin-bottom:6px" onclick="exportOrders()">엑셀로 내보내기</button>
+  <button class="btn btn-danger" style="width:100%" onclick="clearAllOrders()">전체 초기화</button>
+  <hr>
+  <div style="color:#8fa8cc;font-size:10px;line-height:1.6">발주 입력값은 브라우저에 자동 저장됩니다. 같은 PC에서 열면 유지됩니다.</div>
+</div>
+
+<div class="main">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('briefing')">오늘의 브리핑</div>
+    <div class="tab" onclick="switchTab('calendar')">월 달력</div>
+    <div class="tab" onclick="switchTab('detail')">품목 상세</div>
+    <div class="tab" onclick="switchTab('risk')">리스크</div>
+  </div>
+
+  <div id="tab-briefing" class="panel active">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="two-col">
+      <div>
+        <div class="card"><div class="card-title">즉시 발주 필요</div><div id="urgentList"></div></div>
+        <div class="card"><div class="card-title">DOC 긴 품목 — 이달 말 입고 데드라인</div><div id="deadlineList"></div></div>
+      </div>
+      <div>
+        <div class="card"><div class="card-title">이달 재발주 필요 품목</div><div id="reorderList"></div></div>
+        <div class="card" style="margin-top:10px"><div class="card-title">폐기 위험 TOP</div><div id="discardList"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-calendar" class="panel">
+    <div class="two-col">
+      <div>
+        <div class="cal-wrap">
+          <div class="cal-head-row">
+            <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:7px;font-size:11px;color:#6b7c93">
+          <span><span style="display:inline-block;width:9px;height:9px;background:#c6f6d5;border-radius:2px;margin-right:3px;vertical-align:middle"></span>발주입력</span>
+          <span><span style="display:inline-block;width:9px;height:9px;background:#bee3f8;border-radius:2px;margin-right:3px;vertical-align:middle"></span>입고예정</span>
+          <span><span style="display:inline-block;width:9px;height:9px;background:#fed7d7;border-radius:2px;margin-right:3px;vertical-align:middle"></span>재고경고</span>
+        </div>
+        <div class="card" style="margin-top:10px">
+          <div class="card-title">이달 발주 현황</div>
+          <div id="orderSummaryTable"></div>
+        </div>
+      </div>
+      <div>
+        <div class="order-panel" id="orderPanel">
+          <h3>날짜를 클릭하세요</h3>
+          <p style="color:#9aaabb;font-size:12px;margin-top:4px">달력에서 날짜를 클릭하면<br>발주 입력창이 열립니다</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-detail" class="panel">
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+      <input class="search-box" id="searchBox" placeholder="품목명 검색..." oninput="renderDetailTable()">
+      <select id="sortSelect" onchange="renderDetailTable()" style="padding:6px 9px;border:1px solid #d0d8e8;border-radius:7px;font-size:12px">
+        <option value="status">상태 우선</option>
+        <option value="name">품목명</option>
+        <option value="sbd">SBD 짧은순</option>
+        <option value="demand">일수요 많은순</option>
+      </select>
+    </div>
+    <div class="card"><div class="tbl-wrap" id="detailTable"></div></div>
+  </div>
+
+  <div id="tab-risk" class="panel">
+    <div class="card"><div class="card-title">소비기한 초과 폐기 위험 품목</div><div class="tbl-wrap" id="discardTable"></div></div>
+    <div class="card" style="margin-top:10px"><div class="card-title">이달 재발주 사이클 — SBD 짧아 1회 발주로 월 수요 감당 불가</div><div class="three-col" id="cycleCards" style="margin-top:8px"></div></div>
+    <div class="card" style="margin-top:10px"><div class="card-title">SBD 개정 영향 (기존 발주파일 대비)</div><div class="tbl-wrap" id="sbdChangeTable"></div></div>
+  </div>
+</div>
+
+<div class="save-toast" id="saveToast">저장됨</div>
+
+<script>
+const PRODUCTS = [{"name":"아임리얼100 타트체리","spec":"120ml*6개입","bundle":4,"doc":10,"sbd":30,"boxUnit":16,"dailySale":3.0,"reship":0.032,"demand":3.032,"safetyStock":31,"targetStock":7,"maxOrder":48,"recOrder":0,"stock":125,"discard":35,"status":"여유","grade":"D","stop":false},{"name":"아임리얼100 푸룬","spec":"120ml*6개입","bundle":4,"doc":10,"sbd":30,"boxUnit":16,"dailySale":2.0,"reship":0.048,"demand":2.048,"safetyStock":21,"targetStock":5,"maxOrder":32,"recOrder":0,"stock":125,"discard":64,"status":"여유","grade":"D","stop":false},{"name":"아임리얼100 배도라지","spec":"120ml*6개입","bundle":4,"doc":10,"sbd":30,"boxUnit":16,"dailySale":0.0,"reship":0.016,"demand":0.016,"safetyStock":1,"targetStock":1,"maxOrder":0,"recOrder":0,"stock":125,"discard":125,"status":"여유","grade":"D","stop":false},{"name":"아임리얼100 토마토","spec":"120ml*6개입","bundle":4,"doc":10,"sbd":30,"boxUnit":16,"dailySale":0.0,"reship":0.063,"demand":0.063,"safetyStock":1,"targetStock":1,"maxOrder":0,"recOrder":0,"stock":125,"discard":124,"status":"여유","grade":"D","stop":false},{"name":"아임리얼100 블루베리","spec":"120ml*6개입","bundle":4,"doc":10,"sbd":30,"boxUnit":16,"dailySale":8.0,"reship":0.095,"demand":8.095,"safetyStock":81,"targetStock":17,"maxOrder":0,"recOrder":0,"stock":0,"discard":0,"status":"공급중단","grade":"D","stop":true},{"name":"아임리얼100 레몬","spec":"140ml*6개입","bundle":4,"doc":10,"sbd":30,"boxUnit":16,"dailySale":8.0,"reship":0.016,"demand":8.016,"safetyStock":81,"targetStock":17,"maxOrder":160,"recOrder":16,"stock":92,"discard":0,"status":"발주필요","grade":"D","stop":false},{"name":"꽃게탕면","spec":"103g*4개입","bundle":1,"doc":10,"sbd":30,"boxUnit":8,"dailySale":31.0,"reship":0.04,"demand":31.04,"safetyStock":311,"targetStock":63,"maxOrder":616,"recOrder":88,"stock":291,"discard":0,"status":"안전재고↓","grade":"D","stop":false},{"name":"콩나물","spec":"250g","bundle":1,"doc":1,"sbd":4,"boxUnit":15,"dailySale":0.0,"reship":0.159,"demand":0.159,"safetyStock":1,"targetStock":1,"maxOrder":0,"recOrder":0,"stock":1,"discard":1,"status":"여유","grade":"B","stop":false},{"name":"두부","spec":"300g+300g","bundle":1,"doc":3,"sbd":10,"boxUnit":6,"dailySale":64.0,"reship":0.167,"demand":64.167,"safetyStock":193,"targetStock":129,"maxOrder":444,"recOrder":48,"stock":276,"discard":0,"status":"발주필요","grade":"C","stop":false},{"name":"다진마늘","spec":"260g","bundle":1,"doc":3,"sbd":30,"boxUnit":12,"dailySale":4.0,"reship":0.024,"demand":4.024,"safetyStock":13,"targetStock":9,"maxOrder":108,"recOrder":0,"stock":106,"discard":0,"status":"여유","grade":"D","stop":false},{"name":"그릭 플레인","spec":"90g*4개입","bundle":2,"doc":3,"sbd":9,"boxUnit":12,"dailySale":46.0,"reship":0.183,"demand":46.183,"safetyStock":139,"targetStock":93,"maxOrder":276,"recOrder":240,"stock":0,"discard":0,"status":"품절","grade":"C","stop":false},{"name":"식물성 넓은 두부면","spec":"100g","bundle":2,"doc":3,"sbd":15,"boxUnit":24,"dailySale":7.0,"reship":0.04,"demand":7.04,"safetyStock":22,"targetStock":15,"maxOrder":72,"recOrder":0,"stock":181,"discard":76,"status":"여유","grade":"C","stop":false},{"name":"식물성 얇은 두부면","spec":"100g","bundle":2,"doc":3,"sbd":15,"boxUnit":24,"dailySale":11.0,"reship":0.056,"demand":11.056,"safetyStock":34,"targetStock":23,"maxOrder":120,"recOrder":0,"stock":158,"discard":0,"status":"여유","grade":"C","stop":false},{"name":"얇은 두유면","spec":"150g","bundle":3,"doc":3,"sbd":19,"boxUnit":54,"dailySale":8.0,"reship":0.016,"demand":8.016,"safetyStock":25,"targetStock":17,"maxOrder":108,"recOrder":54,"stock":0,"discard":0,"status":"품절","grade":"D","stop":false},{"name":"메밀 두유면","spec":"150g","bundle":2,"doc":3,"sbd":16,"boxUnit":36,"dailySale":18.0,"reship":0.04,"demand":18.04,"safetyStock":55,"targetStock":37,"maxOrder":216,"recOrder":0,"stock":307,"discard":19,"status":"여유","grade":"D","stop":false},{"name":"납작 두유면","spec":"150g","bundle":2,"doc":3,"sbd":19,"boxUnit":36,"dailySale":4.0,"reship":0.008,"demand":4.008,"safetyStock":13,"targetStock":9,"maxOrder":36,"recOrder":0,"stock":98,"discard":22,"status":"여유","grade":"D","stop":false},{"name":"들기름막국수 두유면","spec":"421.4g (2인)","bundle":1,"doc":3,"sbd":12,"boxUnit":8,"dailySale":7.0,"reship":0.016,"demand":7.016,"safetyStock":22,"targetStock":15,"maxOrder":56,"recOrder":0,"stock":138,"discard":54,"status":"여유","grade":"C","stop":false},{"name":"비빔국수 두유면","spec":"423g (2인)","bundle":1,"doc":3,"sbd":12,"boxUnit":8,"dailySale":12.0,"reship":0.008,"demand":12.008,"safetyStock":37,"targetStock":25,"maxOrder":104,"recOrder":0,"stock":72,"discard":0,"status":"여유","grade":"C","stop":false},{"name":"잔치국수 두유면","spec":"374.4g (2인)","bundle":1,"doc":3,"sbd":12,"boxUnit":8,"dailySale":7.0,"reship":0.008,"demand":7.008,"safetyStock":22,"targetStock":15,"maxOrder":56,"recOrder":0,"stock":54,"discard":0,"status":"여유","grade":"C","stop":false},{"name":"평양물냉면 2인","spec":"890g","bundle":1,"doc":3,"sbd":30,"boxUnit":8,"dailySale":16.0,"reship":0.016,"demand":16.016,"safetyStock":49,"targetStock":33,"maxOrder":432,"recOrder":0,"stock":90,"discard":0,"status":"여유","grade":"D","stop":false},{"name":"함흥비빔냉면 2인","spec":"460g","bundle":1,"doc":3,"sbd":30,"boxUnit":8,"dailySale":14.0,"reship":0.016,"demand":14.016,"safetyStock":43,"targetStock":29,"maxOrder":376,"recOrder":0,"stock":72,"discard":0,"status":"여유","grade":"D","stop":false},{"name":"나또쉐이크 서리태","spec":"280g","bundle":2,"doc":10,"sbd":30,"boxUnit":28,"dailySale":1.0,"reship":0.0,"demand":1.0,"safetyStock":10,"targetStock":2,"maxOrder":0,"recOrder":0,"stock":129,"discard":99,"status":"여유","grade":"D","stop":false},{"name":"나또쉐이크 병아리콩","spec":"280g","bundle":2,"doc":10,"sbd":30,"boxUnit":28,"dailySale":0.0,"reship":0.0,"demand":0.0,"safetyStock":0,"targetStock":0,"maxOrder":0,"recOrder":0,"stock":163,"discard":0,"status":"여유","grade":"D","stop":false},{"name":"검은콩 생나또","spec":"49g*2개입","bundle":4,"doc":3,"sbd":9,"boxUnit":48,"dailySale":22.0,"reship":0.056,"demand":22.056,"safetyStock":67,"targetStock":45,"maxOrder":96,"recOrder":0,"stock":126,"discard":0,"status":"여유","grade":"C","stop":false},{"name":"국산콩 생나또","spec":"49g*2개입","bundle":4,"doc":3,"sbd":9,"boxUnit":48,"dailySale":32.0,"reship":0.0,"demand":32.0,"safetyStock":96,"targetStock":64,"maxOrder":192,"recOrder":144,"stock":59,"discard":0,"status":"안전재고↓","grade":"C","stop":false},{"name":"국산콩 두유","spec":"190ml*16개입","bundle":1,"doc":10,"sbd":30,"boxUnit":1,"dailySale":12.0,"reship":0.0,"demand":12.0,"safetyStock":120,"targetStock":24,"maxOrder":240,"recOrder":0,"stock":161,"discard":0,"status":"여유","grade":"D","stop":false},{"name":"국산콩 두부칩 감자","spec":"40g","bundle":6,"doc":10,"sbd":30,"boxUnit":144,"dailySale":21.0,"reship":0.024,"demand":21.024,"safetyStock":211,"targetStock":43,"maxOrder":288,"recOrder":144,"stock":120,"discard":0,"status":"안전재고↓","grade":"D","stop":false},{"name":"국산콩 두부칩 오리지널","spec":"40g","bundle":6,"doc":10,"sbd":30,"boxUnit":144,"dailySale":10.0,"reship":0.0,"demand":10.0,"safetyStock":100,"targetStock":20,"maxOrder":144,"recOrder":0,"stock":157,"discard":0,"status":"여유","grade":"D","stop":false},{"name":"하루요거트 딸기","spec":"80g*16개입","bundle":1,"doc":3,"sbd":11,"boxUnit":8,"dailySale":2.0,"reship":0.0,"demand":2.0,"safetyStock":6,"targetStock":4,"maxOrder":16,"recOrder":0,"stock":98,"discard":76,"status":"여유","grade":"C","stop":false},{"name":"하루요거트 플레인","spec":"80g*16개입","bundle":1,"doc":3,"sbd":11,"boxUnit":8,"dailySale":27.0,"reship":0.024,"demand":27.024,"safetyStock":82,"targetStock":55,"maxOrder":216,"recOrder":0,"stock":190,"discard":0,"status":"여유","grade":"C","stop":false},{"name":"고소한 유부초밥 4인분","spec":"330g","bundle":1,"doc":3,"sbd":30,"boxUnit":20,"dailySale":26.0,"reship":0.008,"demand":26.008,"safetyStock":79,"targetStock":53,"maxOrder":700,"recOrder":60,"stock":86,"discard":0,"status":"발주필요","grade":"D","stop":false},{"name":"설탕무첨가 그릭플레인","spec":"90g*8개입","bundle":2,"doc":3,"sbd":11,"boxUnit":6,"dailySale":9.0,"reship":0.008,"demand":9.008,"safetyStock":28,"targetStock":19,"maxOrder":72,"recOrder":0,"stock":83,"discard":0,"status":"여유","grade":"C","stop":false},{"name":"국산 숙주","spec":"260g","bundle":1,"doc":1,"sbd":3,"boxUnit":15,"dailySale":0.0,"reship":0.008,"demand":0.008,"safetyStock":1,"targetStock":1,"maxOrder":0,"recOrder":0,"stock":1,"discard":1,"status":"여유","grade":"A","stop":false},{"name":"네컵연두부","spec":"360g","bundle":1,"doc":2,"sbd":7,"boxUnit":9,"dailySale":5.0,"reship":0.0,"demand":5.0,"safetyStock":10,"targetStock":10,"maxOrder":18,"recOrder":0,"stock":46,"discard":11,"status":"여유","grade":"B","stop":false},{"name":"순두부","spec":"350g","bundle":2,"doc":2,"sbd":7,"boxUnit":32,"dailySale":26.0,"reship":0.016,"demand":26.016,"safetyStock":53,"targetStock":53,"maxOrder":128,"recOrder":32,"stock":100,"discard":0,"status":"발주필요","grade":"B","stop":false},{"name":"통밀 또띠아","spec":"15cm, 25g*6개입","bundle":1,"doc":3,"sbd":15,"boxUnit":20,"dailySale":0.0,"reship":0.0,"demand":0.0,"safetyStock":0,"targetStock":0,"maxOrder":0,"recOrder":0,"stock":73,"discard":0,"status":"여유","grade":"C","stop":false},{"name":"청포묵","spec":"300g","bundle":1,"doc":3,"sbd":10,"boxUnit":15,"dailySale":30.0,"reship":0.008,"demand":30.008,"safetyStock":91,"targetStock":61,"maxOrder":0,"recOrder":0,"stock":0,"discard":0,"status":"공급중단","grade":"C","stop":true},{"name":"도토리묵","spec":"300g","bundle":2,"doc":2,"sbd":7,"boxUnit":30,"dailySale":24.0,"reship":0.0,"demand":24.0,"safetyStock":48,"targetStock":48,"maxOrder":120,"recOrder":0,"stock":100,"discard":0,"status":"여유","grade":"B","stop":false}];
+const SBD_OLD={"아임리얼100 타트체리":90,"아임리얼100 푸룬":90,"아임리얼100 배도라지":90,"아임리얼100 토마토":90,"아임리얼100 블루베리":90,"아임리얼100 레몬":90,"꽃게탕면":60,"콩나물":3,"두부":7,"다진마늘":40,"그릭 플레인":6,"식물성 넓은 두부면":10,"식물성 얇은 두부면":10,"얇은 두유면":13,"메밀 두유면":11,"납작 두유면":13,"들기름막국수 두유면":9,"비빔국수 두유면":9,"잔치국수 두유면":9,"평양물냉면 2인":40,"함흥비빔냉면 2인":30,"나또쉐이크 서리태":122,"나또쉐이크 병아리콩":122,"검은콩 생나또":6,"국산콩 생나또":6,"국산콩 두유":70,"국산콩 두부칩 감자":60,"국산콩 두부칩 오리지널":60,"하루요거트 딸기":8,"하루요거트 플레인":8,"고소한 유부초밥 4인분":20,"설탕무첨가 그릭플레인":8,"국산 숙주":3,"네컵연두부":5,"순두부":5,"통밀 또띠아":10,"청포묵":7,"도토리묵":5};
+
+const SAVE_KEY='order_dash_v2';
+function loadOrders(){try{return JSON.parse(localStorage.getItem(SAVE_KEY))||{};}catch{return {};}}
+function saveOrders(o){localStorage.setItem(SAVE_KEY,JSON.stringify(o));const t=document.getElementById('saveToast');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1600);}
+
+let orders=loadOrders();
+let selectedDay=null;
+
+// ── 날짜 헬퍼 ─────────────────────────────────────────────
+function getTodayStr(){return document.getElementById('todayInput').value;}
+function getTodayDay(){return parseInt(getTodayStr().split('-')[2]);}
+function getTodayMonth(){return parseInt(getTodayStr().split('-')[1]);}
+
+// ── 필터 ─────────────────────────────────────────────────
+function getGrades(){return [...document.querySelectorAll('.grade-cb:checked')].map(e=>e.value);}
+function getStatuses(){return [...document.querySelectorAll('.status-cb:checked')].map(e=>e.value);}
+
+// 날짜 기준으로 상태 재계산
+function calcStatus(p, todayDay){
+  if(p.stop) return '공급중단';
+  // 기준일 기준 현재고 = 초기재고 - 기준일까지 누적 출고 + 기준일까지 입고된 발주
+  let stock = p.stock;
+  // 초기 기준일(6/9) 대비 todayDay 만큼 재고 소진
+  const daysPassed = todayDay - 9; // 6/9 기준
+  if(daysPassed > 0) stock = Math.max(0, stock - p.demand * daysPassed);
+  if(stock === 0 && p.demand > 0) return '품절';
+  const ss = Math.ceil(p.demand * p.doc);
+  if(stock < ss) return '안전재고↓';
+  if(p.recOrder > 0) return '발주필요';
+  return '여유';
+}
+
+function calcStock(p, todayDay){
+  let stock = p.stock;
+  const daysPassed = todayDay - 9;
+  if(daysPassed > 0) stock = Math.max(0, stock - p.demand * daysPassed);
+  // 발주 입고분 반영
+  for(const [ds, dayOrd] of Object.entries(orders)){
+    const d = parseInt(ds);
+    const arrivalDay = d + p.doc;
+    if(arrivalDay <= todayDay){
+      stock += (dayOrd[p.name]||0);
+    }
+  }
+  return Math.max(0, Math.round(stock));
+}
+
+// ── 탭 전환 ──────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  const tabs=['briefing','calendar','detail','risk'];
+  document.querySelectorAll('.tab')[tabs.indexOf(name)].classList.add('active');
+  if(name==='briefing') renderBriefing();
+  if(name==='calendar') renderCalendar();
+  if(name==='detail')   renderDetailTable();
+  if(name==='risk')     renderRisk();
+}
+
+function onDateChange(){
+  renderBriefing();
+  renderCalendar();
+  renderDetailTable();
+}
+
+// ── 브리핑 ───────────────────────────────────────────────
+function renderBriefing(){
+  const today = getTodayDay();
+  const daysLeft = 30 - today + 1;
+
+  // 기준일 기준 재계산
+  const urgent = PRODUCTS.filter(p=>{
+    if(p.stop) return false;
+    const s = calcStatus(p, today);
+    return s==='품절'||s==='안전재고↓';
+  });
+  const needOrder = PRODUCTS.filter(p=>!p.stop && calcStatus(p,today)==='발주필요');
+  const totalRecOrder = PRODUCTS.reduce((s,p)=>s+(p.stop?0:p.recOrder),0);
+  const totalDiscard = PRODUCTS.reduce((s,p)=>s+p.discard,0);
+  const stopCount = PRODUCTS.filter(p=>p.stop).length;
+
+  // KPI
+  const kpiData=[
+    ['즉시 발주 필요', urgent.length, '품목', urgent.length>0?'danger':'', urgent.length>0?'#e53e3e':'#38a169'],
+    ['발주 권장', needOrder.length, '품목', needOrder.length>0?'warn':'', needOrder.length>0?'#d97706':'#38a169'],
+    ['총 권장 발주량', totalRecOrder.toLocaleString(), '개', 'info', '#3182ce'],
+    ['폐기 위험 재고', totalDiscard.toLocaleString(), '개', totalDiscard>0?'danger':'', totalDiscard>0?'#e53e3e':'#38a169'],
+    ['공급중단', stopCount, '품목', 'neutral', '#718096'],
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpiData.map(([l,v,u,cls,c])=>
+    `<div class="kpi ${cls}"><div class="lbl">${l}</div><div class="val" style="color:${c}">${v}</div><div class="unit">${u}</div></div>`
+  ).join('');
+
+  // 즉시 발주
+  document.getElementById('urgentList').innerHTML = urgent.length
+    ? urgent.map(p=>{
+        const eta = today + p.doc;
+        const curStock = calcStock(p, today);
+        return `<div class="abox red">
+          <div class="abox-title">${p.name}</div>
+          <div class="abox-row">현재고<strong>${curStock}개</strong></div>
+          <div class="abox-row">안전재고<strong>${Math.ceil(p.demand*p.doc)}개</strong></div>
+          <div class="abox-row">권장 발주량<strong>${p.recOrder}개 (${Math.ceil(p.recOrder/p.boxUnit)}BOX)</strong></div>
+          <div class="abox-row">오늘 발주 시 입고<strong>6/${eta} (DOC ${p.doc}일)</strong></div>
+        </div>`;}).join('')
+    : '<div style="color:#38a169;font-size:12px;padding:6px">즉시 발주가 필요한 품목이 없습니다.</div>';
+
+  // 데드라인
+  const dl = PRODUCTS.filter(p=>!p.stop&&p.doc>=7&&p.recOrder>0);
+  document.getElementById('deadlineList').innerHTML = dl.length
+    ? dl.map(p=>{
+        const deadline = 30 - p.doc;
+        const daysLeft2 = deadline - today;
+        const cls = daysLeft2<=3?'red':daysLeft2<=7?'amber':'blue';
+        return `<div class="abox ${cls}">
+          <div class="abox-title">${p.name} — DOC ${p.doc}일</div>
+          <div class="abox-row">6월 말 입고 원하면<strong>6/${deadline}까지 발주</strong></div>
+          <div class="abox-row">권장 발주량<strong>${p.recOrder}개</strong></div>
+          <div class="abox-row">D-day<strong>${daysLeft2}일 남음</strong></div>
+        </div>`;}).join('')
+    : '<div style="color:#6b7c93;font-size:12px;padding:6px">해당 없음</div>';
+
+  // 재발주 필요
+  const multi = PRODUCTS.filter(p=>!p.stop&&reorderCount(p)>=2)
+    .sort((a,b)=>reorderCount(b)-reorderCount(a)).slice(0,8);
+  document.getElementById('reorderList').innerHTML = multi.length
+    ? multi.map(p=>{
+        const cnt=reorderCount(p);
+        return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:12px">
+          <span style="color:#2d3748">${p.name}</span>
+          <span style="font-weight:700;color:${cnt>=4?'#c53030':'#d97706'}">이달 ${cnt}회</span>
+        </div>`;}).join('')
+    : '<div style="color:#6b7c93;font-size:12px;padding:6px">해당 없음</div>';
+
+  // 폐기 위험
+  const discardItems = PRODUCTS.filter(p=>p.discard>0).sort((a,b)=>b.discard-a.discard);
+  document.getElementById('discardList').innerHTML = discardItems.slice(0,6).map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f5f5f5">
+      <span style="font-size:11px;color:#2d3748;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
+      <div class="dbar-wrap" style="margin:0 8px"><div class="dbar" style="width:${Math.min(100,p.discard/1.5)}%"></div></div>
+      <span style="font-size:11px;font-weight:700;color:#c53030;min-width:34px;text-align:right">${p.discard}개</span>
+    </div>`).join('');
+}
+
+function reorderCount(p){
+  if(p.stop||p.maxOrder<=0||p.demand<=0) return 0;
+  return Math.max(1, Math.ceil(p.demand*21/p.maxOrder));
+}
+
+function suggestDates(p){
+  const today=getTodayDay();
+  const salesDays=p.sbd-p.doc;
+  if(salesDays<=0) return [];
+  const dates=[];
+  let d=today;
+  while(d<=30&&dates.length<5){dates.push(d);d+=salesDays;}
+  return dates;
+}
+
+// ── 달력 ─────────────────────────────────────────────────
+function renderCalendar(){
+  const daysInMonth=30;
+  const fd=new Date(2026,5,1).getDay(); // 0=일
+  const today=getTodayDay();
+
+  const calEv={};
+  for(let d=1;d<=daysInMonth;d++) calEv[d]=[];
+
+  for(const [ds,dayOrd] of Object.entries(orders)){
+    const d=parseInt(ds);
+    if(d<1||d>daysInMonth) continue;
+    for(const [pid,qty] of Object.entries(dayOrd)){
+      if(qty>0){
+        calEv[d].push({t:'order',txt:`+${qty} ${pid.substring(0,6)}`});
+        const p=PRODUCTS.find(x=>x.name===pid);
+        if(p){const arr=d+p.doc;if(arr<=daysInMonth)calEv[arr].push({t:'arrive',txt:`입고 ${pid.substring(0,5)}`});}
+      }
+    }
+  }
+  PRODUCTS.filter(p=>!p.stop&&p.demand>0).forEach(p=>{
+    for(let d=today;d<=daysInMonth;d++){
+      const proj=p.stock-p.demand*(d-9);
+      const ss=Math.ceil(p.demand*p.doc);
+      if(proj<ss*0.5&&proj>=0&&!calEv[d].some(e=>e.txt.includes(p.name.substring(0,4))&&e.t==='warn'))
+        calEv[d].push({t:'warn',txt:`! ${p.name.substring(0,5)}`});
+    }
+  });
+
+  let html='';
+  for(let i=0;i<fd;i++) html+=`<div class="dc empty"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const dow=(fd+d-1)%7;
+    const isToday=(d===today);
+    const isSun=(dow===0);
+    const dayOrd=orders[String(d)]||{};
+    const hasOrder=Object.values(dayOrd).some(v=>v>0);
+    const isSelected=(d===selectedDay);
+    let cls='dc'+(isSun?' sun':'')+(isToday?' today':'')+(hasOrder?' has-order':'')+(isSelected?' selected':'');
+    const evs=calEv[d]||[];
+    const evHtml=evs.slice(0,3).map(e=>`<div class="ev ${e.t}" title="${e.txt}">${e.txt}</div>`).join('')
+      +(evs.length>3?`<div class="ev-more">+${evs.length-3}건</div>`:'');
+    html+=`<div class="${cls}" onclick="selectDay(${d})"><span class="dn">${d}</span><div class="ev-wrap">${evHtml}</div></div>`;
+  }
+  document.getElementById('calGrid').innerHTML=html;
+
+  const rows=[];
+  for(const [ds,dayOrd] of Object.entries(orders)){
+    for(const [pid,qty] of Object.entries(dayOrd)){
+      if(qty>0){
+        const p=PRODUCTS.find(x=>x.name===pid);
+        rows.push({day:parseInt(ds),name:pid,qty,eta:p?parseInt(ds)+p.doc:'?'});
+      }
+    }
+  }
+  rows.sort((a,b)=>a.day-b.day);
+  document.getElementById('orderSummaryTable').innerHTML=rows.length
+    ?`<table><thead><tr><th>발주일</th><th>품목</th><th>발주수량</th><th>입고예정</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>6/${r.day}</td><td>${r.name}</td><td style="font-weight:700">${r.qty}개</td><td style="color:#3182ce">6/${r.eta}</td></tr>`).join('')}
+      </tbody></table>`
+    :'<div style="color:#9aaabb;font-size:12px;padding:6px">입력된 발주가 없습니다.</div>';
+}
+
+function selectDay(d){
+  selectedDay=d;
+  renderCalendar();
+  renderOrderPanel(d);
+}
+
+function renderOrderPanel(d){
+  const items=PRODUCTS.filter(p=>!p.stop&&(p.recOrder>0||['품절','안전재고↓'].includes(p.status)));
+  const allItems=PRODUCTS.filter(p=>!p.stop&&p.demand>0);
+  const show=items.length>0?items:allItems;
+  const dayOrd=orders[String(d)]||{};
+
+  let html=`<h3>6월 ${d}일 발주 입력</h3>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn btn-pri" onclick="autoFillDay(${d})" style="flex:1">자동 채우기</button>
+      <button class="btn btn-sec" onclick="clearDay(${d})">초기화</button>
+    </div>
+    <div style="font-size:10px;color:#9aaabb;margin-bottom:6px">파란수 = 권장량 | 박스단위 배수 권장</div>`;
+
+  show.slice(0,16).forEach(p=>{
+    const cur=dayOrd[p.name]||0;
+    const rec=p.recOrder>0?`<span style="color:#3182ce;font-weight:700">${p.recOrder}</span>`:'—';
+    html+=`<div class="op-row">
+      <span class="op-name" title="${p.name}">${p.name}</span>
+      <span class="op-rec">${rec}</span>
+      <input class="op-input" type="number" min="0" step="${p.boxUnit}" value="${cur}"
+        onchange="setOrder(${d},'${p.name.replace(/'/g,"\\'")}',this.value)">
+    </div>`;
+  });
+  document.getElementById('orderPanel').innerHTML=html;
+}
+
+function setOrder(d,name,val){
+  const qty=Math.max(0,parseInt(val)||0);
+  if(!orders[String(d)]) orders[String(d)]={};
+  orders[String(d)][name]=qty;
+  saveOrders(orders);
+  renderCalendar();
+}
+
+function autoFillDay(d){
+  if(!orders[String(d)]) orders[String(d)]={};
+  PRODUCTS.forEach(p=>{if(!p.stop&&p.recOrder>0) orders[String(d)][p.name]=p.recOrder;});
+  saveOrders(orders);
+  renderCalendar();
+  renderOrderPanel(d);
+}
+
+function clearDay(d){
+  orders[String(d)]={};
+  saveOrders(orders);
+  renderCalendar();
+  renderOrderPanel(d);
+}
+
+function clearAllOrders(){
+  if(!confirm('모든 발주 입력값을 초기화할까요?')) return;
+  orders={};
+  saveOrders(orders);
+  selectedDay=null;
+  renderCalendar();
+  document.getElementById('orderPanel').innerHTML='<h3>날짜를 클릭하세요</h3><p style="color:#9aaabb;font-size:12px;margin-top:4px">달력에서 날짜를 클릭하면 발주 입력창이 열립니다</p>';
+}
+
+// ── 품목 상세 ─────────────────────────────────────────────
+function renderDetailTable(){
+  const kw=(document.getElementById('searchBox').value||'').trim().toLowerCase();
+  const sort=document.getElementById('sortSelect').value;
+  const grades=getGrades(),statuses=getStatuses();
+  const today=getTodayDay();
+
+  let items=PRODUCTS.filter(p=>{
+    const s=calcStatus(p,today);
+    return grades.includes(p.grade)&&statuses.includes(s)&&(!kw||p.name.includes(kw));
+  });
+
+  const ORDER={'품절':0,'안전재고↓':1,'발주필요':2,'여유':3,'공급중단':4};
+  if(sort==='status') items.sort((a,b)=>ORDER[calcStatus(a,today)]-ORDER[calcStatus(b,today)]);
+  else if(sort==='name') items.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sort==='sbd') items.sort((a,b)=>a.sbd-b.sbd);
+  else if(sort==='demand') items.sort((a,b)=>b.demand-a.demand);
+
+  document.getElementById('detailTable').innerHTML=`<table><thead><tr>
+    <th>품목</th><th>신선도</th><th>SBD</th><th>DOC</th>
+    <th>현재고</th><th>일수요</th><th>안전재고</th>
+    <th>최대발주</th><th>권장발주</th><th>폐기위험</th><th>상태</th>
+  </tr></thead><tbody>
+  ${items.map(p=>{
+    const s=calcStatus(p,today);
+    const curStock=calcStock(p,today);
+    const ss=Math.ceil(p.demand*p.doc);
+    const pct=Math.min(100,Math.round(curStock/Math.max(ss*2,1)*100));
+    const barColor=curStock===0?'#e53e3e':curStock<ss?'#d97706':'#48bb78';
+    return `<tr>
+      <td style="font-weight:700;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</td>
+      <td><span class="badge g-${p.grade}">${{A:'A.초신선',B:'B.신선',C:'C.준신선',D:'D.장기'}[p.grade]}</span></td>
+      <td>${p.sbd}일</td><td>${p.doc}일</td>
+      <td><div style="display:flex;align-items:center;gap:5px">${curStock}<div class="stock-bar-wrap"><div class="stock-bar" style="width:${pct}%;background:${barColor}"></div></div></div></td>
+      <td>${p.demand.toFixed(2)}</td>
+      <td>${ss}</td>
+      <td>${p.maxOrder||'—'}</td>
+      <td style="font-weight:700;color:${p.recOrder>0?'#3182ce':'inherit'}">${p.recOrder||'—'}</td>
+      <td>${p.discard>0?`<span style="color:#c53030;font-weight:700">${p.discard}개</span>`:'—'}</td>
+      <td><span class="badge s-${s}">${s}</span></td>
+    </tr>`;}).join('')}
+  </tbody></table>`;
+}
+
+// ── 리스크 ────────────────────────────────────────────────
+function renderRisk(){
+  const di=PRODUCTS.filter(p=>p.discard>0).sort((a,b)=>b.discard-a.discard);
+  document.getElementById('discardTable').innerHTML=`<table><thead><tr>
+    <th>품목</th><th>신선도</th><th>SBD</th><th>현재고</th><th>일수요</th><th>SBD내 소진가능</th><th>폐기위험</th><th>조치</th>
+  </tr></thead><tbody>
+  ${di.map(p=>{
+    const canSell=Math.floor(p.sbd*p.demand);
+    const action=p.demand<0.1?'프로모션·번들 할인':p.discard>50?'발주 일시 중단':'다음 발주 소량 조정';
+    return `<tr>
+      <td style="font-weight:700">${p.name}</td>
+      <td><span class="badge g-${p.grade}">${p.grade}</span></td>
+      <td>${p.sbd}일</td><td>${p.stock}개</td>
+      <td>${p.demand.toFixed(2)}/일</td><td>${canSell}개</td>
+      <td><span style="color:#c53030;font-weight:700">${p.discard}개</span></td>
+      <td style="color:#6b7c93;font-size:11px">${action}</td>
+    </tr>`;}).join('')}
+  </tbody></table>`;
+
+  const multi=PRODUCTS.filter(p=>!p.stop&&reorderCount(p)>=2).sort((a,b)=>reorderCount(b)-reorderCount(a));
+  document.getElementById('cycleCards').innerHTML=multi.map(p=>{
+    const cnt=reorderCount(p);
+    const dates=suggestDates(p);
+    return `<div class="cycle-card">
+      <div class="cycle-name" title="${p.name}">${p.name}</div>
+      <div class="cycle-row">SBD / DOC<span>${p.sbd}일 / ${p.doc}일</span></div>
+      <div class="cycle-row">판매가능기간<span>${p.sbd-p.doc}일</span></div>
+      <div class="cycle-row">1회 최대발주<span>${p.maxOrder}개</span></div>
+      <div class="cycle-row">이달 발주 횟수<span style="color:${cnt>=4?'#c53030':'#d97706'}">${cnt}회 필요</span></div>
+      <div class="cycle-dates">${dates.map(d=>`<span class="cdate">6/${d}</span>`).join('')}</div>
+    </div>`;}).join('');
+
+  const changed=PRODUCTS.filter(p=>SBD_OLD[p.name]&&SBD_OLD[p.name]!==p.sbd)
+    .sort((a,b)=>(SBD_OLD[b.name]-b.sbd)-(SBD_OLD[a.name]-a.sbd));
+  document.getElementById('sbdChangeTable').innerHTML=`<table><thead><tr>
+    <th>품목</th><th>기존 SBD</th><th>신규 SBD</th><th>변경폭</th><th>영향</th>
+  </tr></thead><tbody>
+  ${changed.map(p=>{
+    const diff=p.sbd-SBD_OLD[p.name];
+    const col=diff<0?'#c53030':'#276221';
+    return `<tr>
+      <td style="font-weight:700">${p.name}</td>
+      <td style="color:#c53030;font-weight:700">${SBD_OLD[p.name]}일</td>
+      <td style="color:#276221;font-weight:700">${p.sbd}일</td>
+      <td style="font-weight:700;color:${col}">${diff>0?'+':''}${diff}일</td>
+      <td style="font-size:11px;color:#6b7c93">${diff<0?'발주량 감소 가능':'발주량 증가 가능'}</td>
+    </tr>`;}).join('')}
+  </tbody></table>`;
+}
+
+// ── 엑셀 내보내기 ─────────────────────────────────────────
+function exportOrders(){
+  const rows=[['발주일','품목','발주수량(개)','입고예정일','DOC','SBD','박스단위']];
+  for(const [ds,dayOrd] of Object.entries(orders)){
+    for(const [pid,qty] of Object.entries(dayOrd)){
+      if(qty<=0) continue;
+      const p=PRODUCTS.find(x=>x.name===pid);
+      if(!p) continue;
+      rows.push([`2026-06-${String(ds).padStart(2,'0')}`,pid,qty,
+        `2026-06-${String(parseInt(ds)+p.doc).padStart(2,'0')}`,p.doc,p.sbd,`${p.boxUnit}개`]);
+    }
+  }
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`발주계획_2026-06.csv`;
+  a.click();
+}
+
+// ── 필터 이벤트 ──────────────────────────────────────────
+document.querySelectorAll('.grade-cb,.status-cb').forEach(cb=>{
+  cb.addEventListener('change',()=>{renderBriefing();renderDetailTable();});
+});
+
+// ── 초기 렌더링 ──────────────────────────────────────────
+renderBriefing();
+</script>
+</body>
+</html>
